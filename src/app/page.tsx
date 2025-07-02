@@ -7,6 +7,7 @@ interface Post {
   author_id: string;
   message: string;
   created_at: string;
+  photo_url?: string | null;
 }
 
 export default function Wall() {
@@ -17,6 +18,8 @@ export default function Wall() {
   const [hasMore, setHasMore] = useState(true);
   const [page, setPage] = useState(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [photo, setPhoto] = useState<File | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     fetchPosts(0);
@@ -48,7 +51,11 @@ export default function Wall() {
       .range(from, to);
     if (error) setError("Failed to load posts");
     if (data && data.length > 0) {
-      setPosts((prev) => pageNum === 0 ? data as Post[] : [...prev, ...data as Post[]]);
+      setPosts((prev) => {
+        const existingIds = new Set(prev.map(p => p.id));
+        const newPosts = (data as Post[]).filter(post => !existingIds.has(post.id));
+        return pageNum === 0 ? data as Post[] : [...prev, ...newPosts];
+      });
       setHasMore(data.length === pageSize);
     } else {
       setHasMore(false);
@@ -65,12 +72,28 @@ export default function Wall() {
   async function handleShare(e: React.FormEvent) {
     e.preventDefault();
     if (!message.trim() || message.length > 280) return;
+    setSubmitting(true);
+    let photoUrl = null;
+    if (photo) {
+      const fileExt = photo.name.split('.').pop();
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}.${fileExt}`;
+      const { data: uploadData, error: uploadError } = await supabase.storage.from('post-photos').upload(fileName, photo);
+      if (uploadError) {
+        setError('Failed to upload photo');
+        setSubmitting(false);
+        return;
+      }
+      photoUrl = supabase.storage.from('post-photos').getPublicUrl(fileName).data.publicUrl;
+    }
     const { error } = await supabase.from("posts").insert([
-      { author_id: "anonymous", message },
+      { author_id: "anonymous", message, photo_url: photoUrl },
     ]);
-    if (!error) setMessage("");
-    else setError("Failed to post!");
+    if (!error) {
+      setMessage("");
+      setPhoto(null);
+    } else setError("Failed to post!");
     textareaRef.current?.focus();
+    setSubmitting(false);
   }
 
   return (
@@ -117,14 +140,55 @@ export default function Wall() {
               placeholder="What's on your mind?"
               rows={3}
               className="w-full border-2 border-dashed border-gray-300 rounded-sm p-3 text-base resize-none focus:outline-none focus:border-blue-400 bg-gray-50 placeholder:text-gray-600 text-gray-700"
+              disabled={loading}
             />
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between mb-1">
               <span className={`text-sm ${message.length > 280 ? 'text-red-500' : 'text-gray-400'}`}>{280 - message.length} characters remaining</span>
+            </div>
+            <div className="mb-2 flex items-center gap-2">
+              <label htmlFor="photo-upload" className={`px-4 py-2 bg-blue-100 text-blue-700 rounded font-medium text-sm ${submitting ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:bg-blue-200'}`}
+                aria-disabled={submitting}
+              >
+                Choose Photo
+              </label>
+              <input
+                id="photo-upload"
+                type="file"
+                accept="image/*"
+                onChange={e => !submitting && setPhoto(e.target.files ? e.target.files[0] : null)}
+                className="hidden"
+                disabled={submitting}
+              />
+            </div>
+            {photo && (
+              <div className="mb-2 relative w-20 h-20">
+                <img src={URL.createObjectURL(photo)} alt="Preview" className="w-20 h-20 object-cover rounded" />
+                <button
+                  type="button"
+                  onClick={() => !submitting && setPhoto(null)}
+                  className={`absolute top-0 right-0 bg-white bg-opacity-80 rounded-full p-1 text-gray-700 transition-colors shadow ${submitting ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-100 hover:text-red-600'}`}
+                  aria-label="Remove photo preview"
+                  style={{ transform: 'translate(35%,-35%)' }}
+                  disabled={submitting}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            )}
+            <div className="flex justify-end">
               <button
                 type="submit"
-                disabled={!message.trim() || message.length > 280}
-                className="bg-blue-500 text-white font-semibold px-6 py-2 rounded-lg disabled:opacity-40"
+                disabled={!message.trim() || message.length > 280 || submitting}
+                className="bg-blue-500 text-white font-semibold px-6 py-2 rounded-lg disabled:opacity-40 flex items-center justify-center min-w-[80px]"
               >
+                {submitting ? (
+                  <svg className="animate-spin h-5 w-5 mr-2 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                  </svg>
+                ) : null}
                 Share
               </button>
             </div>
@@ -144,6 +208,9 @@ export default function Wall() {
                     <span className="text-xs text-gray-800 font-normal ml-2 whitespace-nowrap">{formatRelativeTime(post.created_at)}</span>
                   </div>
                   <div className="text-base mt-1 mb-1 whitespace-pre-line text-gray-800">{post.message}</div>
+                  {post.photo_url && (
+                    <img src={post.photo_url} alt="Post Photo" className="mt-2 rounded max-h-60 object-contain" />
+                  )}
                 </div>
               ))
             )}
