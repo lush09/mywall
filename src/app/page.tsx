@@ -44,7 +44,7 @@ export default function Wall() {
     const pageSize = 10;
     const from = pageNum * pageSize;
     const to = from + pageSize - 1;
-    let { data, error } = await supabase
+    const { data, error } = await supabase
       .from("posts")
       .select("*")
       .order("created_at", { ascending: false })
@@ -77,7 +77,7 @@ export default function Wall() {
     if (photo) {
       const fileExt = photo.name.split('.').pop();
       const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}.${fileExt}`;
-      const { data: uploadData, error: uploadError } = await supabase.storage.from('post-photos').upload(fileName, photo);
+      const { error: uploadError } = await supabase.storage.from('post-photos').upload(fileName, photo);
       if (uploadError) {
         setError('Failed to upload photo');
         setSubmitting(false);
