@@ -113,7 +113,7 @@ export default function Wall() {
           <div className="w-full flex flex-col items-start">
             <div className="text-2xl font-bold mb-1 text-gray-800 text-left">Shigeru Houshi</div>
             <div className="text-gray-500 mb-7 font-semibold text-left">wall</div>
-            <button className="mb-4 px-2 py-3 border font-bold border-gray-300 rounded bg-gray-100 text-gray-700 text-sm text-left">Information</button>
+            <button className="mb-4 px-2 py-3 border font-bold border-gray-300 rounded bg-gray-100 text-gray-700 text-sm text-left w-full">Information</button>
           </div>
           <div className="w-full text-left text-sm text-gray-700">
             <div className="mb-2">
@@ -139,7 +139,7 @@ export default function Wall() {
               maxLength={280}
               placeholder="What's on your mind?"
               rows={3}
-              className="w-full border-2 border-dashed border-gray-300 rounded-sm p-3 text-base resize-none focus:outline-none focus:border-blue-400 bg-gray-50 placeholder:text-gray-600 text-gray-700"
+              className="w-full border-2 border-dashed border-gray-300 rounded-sm p-3 text-base resize-none focus:outline-none focus:border-blue-400 bg-blue-50 placeholder:text-gray-600 text-gray-700"
               disabled={loading}
             />
             <div className="flex items-center justify-between mb-1">
